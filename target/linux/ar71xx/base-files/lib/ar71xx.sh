@@ -492,6 +492,9 @@ mikrotik_board_detect() {
 	*"921GS-5HPacD r2")
 		name="rb-921gs-5hpacd-r2"
 		;;
+	*"931-2nD")
+		name="rb-931-2nd"
+		;;
 	*"941-2nD")
 		name="rb-941-2nd"
 		;;
