@@ -14,6 +14,7 @@
  *  - MikroTik RouterBOARD 750P-PBr2
  *  - MikroTik RouterBOARD 750 r2
  *  - MikroTik RouterBOARD LHG 5nD
+ *  - MikroTik RouterBOARD SXTsq 2nD
  *  - MikroTik RouterBOARD wAP2nD
  *  - MikroTik RouterBOARD wAP G-5HacT2HnDwAP (wAP AC)
  *  - MikroTik RouterBOARD wAP R-2nD
@@ -24,7 +25,7 @@
  *  hardware as the mAP L-2nD. It is unknown if they share the same board
  *  identifier.
  *
- *  Copyright (C) 2017-2018 Thibaut VARENE <varenet@parisc-linux.org>
+ *  Copyright (C) 2017-2020 Thibaut VARENE <varenet@parisc-linux.org>
  *  Copyright (C) 2016 David Hutchison <dhutchison@bluemesh.net>
  *  Copyright (C) 2017 Ryan Mounce <ryan@mounce.com.au>
  *
@@ -474,6 +475,55 @@ static struct gpio_led rblhg_leds[] __initdata = {
 	}, {
 		.name = "rb:blue:power",
 		.gpio = RBLHG_GPIO_LED_POWER,
+		.active_low = 0,
+		.default_state = LEDS_GPIO_DEFSTATE_ON,
+	},
+};
+
+/* RB SXTsq 2nD gpios */
+#define RBSXTSQ_GPIO_LED_0	11
+#define RBSXTSQ_GPIO_LED_1	9
+#define RBSXTSQ_GPIO_LED_2	12
+#define RBSXTSQ_GPIO_LED_3	13
+#define RBSXTSQ_GPIO_LED_4	16	// shared with reset button
+#define RBSXTSQ_GPIO_LED_ETH	4
+#define RBSXTSQ_GPIO_LED_POWER	17
+#define RBSXTSQ_GPIO_LED_USER	14
+#define RBSXTSQ_GPIO_BTN_RESET	16
+
+static struct gpio_led rbsxtsq_leds[] __initdata = {
+	{
+		.name = "rb:green:rssi0",
+		.gpio = RBSXTSQ_GPIO_LED_0,
+		.active_low = 1,
+	}, {
+		.name = "rb:green:rssi1",
+		.gpio = RBSXTSQ_GPIO_LED_1,
+		.active_low = 1,
+	}, {
+		.name = "rb:green:rssi2",
+		.gpio = RBSXTSQ_GPIO_LED_2,
+		.active_low = 1,
+	}, {
+		.name = "rb:green:rssi3",
+		.gpio = RBSXTSQ_GPIO_LED_3,
+		.active_low = 1,
+/*	}, {
+		// LED_4 GPIO is shared with reset button => Do not register this LED
+		.name = "rb:green:rssi4",
+		.gpio = RBSXTSQ_GPIO_LED_4,
+		.active_low = 1,
+*/	}, {
+		.name = "rb:green:eth",
+		.gpio = RBSXTSQ_GPIO_LED_ETH,
+		.active_low = 1,
+	}, {
+		.name = "rb:green:user",
+		.gpio = RBSXTSQ_GPIO_LED_USER,
+		.active_low = 1,
+	}, {
+		.name = "rb:green:power",
+		.gpio = RBSXTSQ_GPIO_LED_POWER,
 		.active_low = 0,
 		.default_state = LEDS_GPIO_DEFSTATE_ON,
 	},
@@ -1021,6 +1071,31 @@ static void __init rblhg_setup(void)
 }
 
 /*
+ * Init the SXTsq Lite2 (QCA9533).
+ * This device has a single ethernet port connected to PHY0.
+ * Wireless is provided via 2.4GHz WLAN1.
+ */
+static void __init rbsxtsq_setup(void)
+{
+	u32 flags = RBSPI_HAS_WLAN1;
+
+	if (!rbspi_platform_setup())
+		return;
+
+	rbspi_peripherals_setup(flags);
+
+	/* GMAC1 is HW MAC, WLAN1 MAC is HW MAC + 1 */
+	rbspi_network_setup(flags, 0, 0, 1);
+
+	ath79_register_leds_gpio(-1, ARRAY_SIZE(rbsxtsq_leds), rbsxtsq_leds);
+
+	/* Make the eth LED controllable by software. */
+	ath79_gpio_output_select(RBSXTSQ_GPIO_LED_ETH, AR934X_GPIO_OUT_GPIO);
+
+	rbspi_register_reset_button(RBSXTSQ_GPIO_BTN_RESET);
+}
+
+/*
  * Init the wAP hardware.
  * The wAP 2nD has a single ethernet port.
  */
@@ -1260,3 +1335,4 @@ MIPS_MACHINE_NONAME(ATH79_MACH_RB_CAP, "cap-hb", rbcap_setup);
 MIPS_MACHINE_NONAME(ATH79_MACH_RB_MAP, "map2-hb", rbmap_setup);
 MIPS_MACHINE_NONAME(ATH79_MACH_RB_WAPAC, "wapg-sc", rbwapgsc_setup);
 MIPS_MACHINE_NONAME(ATH79_MACH_RB_931, "931", rb931_setup);
+MIPS_MACHINE_NONAME(ATH79_MACH_RB_SXTSQL2, "lhg-hb", rbsxtsq_setup);
