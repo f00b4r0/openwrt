@@ -382,6 +382,7 @@ get_status_led() {
 	rb-map-2nd|\
 	rb-mapl-2nd|\
 	rb-sxt-2nd-r3|\
+	rb-sxtsq-2nd|\
 	rb-wap-2nd|\
 	rb-wapr-2nd)
 		status_led="rb:green:user"
