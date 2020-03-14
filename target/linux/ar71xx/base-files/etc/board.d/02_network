@@ -112,6 +112,7 @@ ar71xx_setup_interfaces()
 	rb-mapl-2nd|\
 	rb-sxt2n|\
 	rb-sxt5n|\
+	rb-sxtsq-2nd|\
 	rb-wap-2nd|\
 	rb-wapg-5hact2hnd|\
 	re355|\
