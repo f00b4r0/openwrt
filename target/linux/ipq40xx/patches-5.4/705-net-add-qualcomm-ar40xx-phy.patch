@@ -6,7 +6,7 @@
  
 +config AR40XX_PHY
 +	tristate "Driver for Qualcomm Atheros IPQ40XX switches"
-+	depends on HAS_IOMEM && OF
++	depends on HAS_IOMEM && OF && OF_MDIO
 +	select SWCONFIG
 +	help
 +	   This is the driver for Qualcomm Atheros IPQ40XX ESS switches.
