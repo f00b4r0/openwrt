@@ -1,0 +1,31 @@
+#!/bin/sh
+
+[ -e /lib/firmware/$FIRMWARE ] && exit 0
+
+. /lib/functions/caldata.sh
+
+wlan_data="/sys/firmware/mikrotik/hard_config/wlan_data"
+
+board=$(board_name)
+
+case "$FIRMWARE" in
+"ath10k/pre-cal-ahb-a000000.wifi.bin")
+	case "$board" in
+	mikrotik,hap-ac2)
+		( [ -f "$wlan_data" ] && caldata_sysfsload_from_file "$wlan_data" 0x0 0x2f20 ) || \
+		( [ -d "$wlan_data" ] && caldata_sysfsload_from_file "$wlan_data/data_0" 0x0 0x2f20 )
+		;;
+	esac
+	;;
+"ath10k/pre-cal-ahb-a800000.wifi.bin")
+	case "$board" in
+	mikrotik,hap-ac2)
+		( [ -f "$wlan_data" ] && caldata_sysfsload_from_file "$wlan_data" 0x8000 0x2f20 ) || \
+		( [ -d "$wlan_data" ] && caldata_sysfsload_from_file "$wlan_data/data_2" 0x0 0x2f20 )
+		;;
+	esac
+	;;
+*)
+	exit 1
+	;;
+esac

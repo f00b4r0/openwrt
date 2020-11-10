@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# Copyright (c) 2015 The Linux Foundation. All rights reserved.
+# Copyright (c) 2011-2015 OpenWrt.org
+#
+
+. /lib/functions/uci-defaults.sh
+. /lib/functions/system.sh
+
+ipq40xx_setup_interfaces()
+{
+	local board="$1"
+
+	case "$board" in
+	mikrotik,hap-ac2)
+		ucidef_set_interfaces_lan_wan "eth0" "eth1"
+		ucidef_add_switch "switch0" \
+			"0u@eth0" "1:lan:4" "2:lan:3" "3:lan:2" "4:lan:1"
+		;;
+	*)
+		ucidef_set_interfaces_lan_wan "eth0" "eth1"
+		;;
+	esac
+}
+
+ipq40xx_setup_macs()
+{
+	local board="$1"
+	local lan_mac=""
+	local wan_mac=""
+	local label_mac=""
+	local mac_base="$(cat /sys/firmware/mikrotik/hard_config/mac_base)"
+
+	case "$board" in
+	*)
+		label_mac="$mac_base"
+		wan_mac="$mac_base"
+		lan_mac=$(macaddr_add $mac_base 1)
+		;;
+	esac
+
+	[ -n "$lan_mac" ] && ucidef_set_interface_macaddr "lan" $lan_mac
+	[ -n "$wan_mac" ] && ucidef_set_interface_macaddr "wan" $wan_mac
+	[ -n "$label_mac" ] && ucidef_set_label_macaddr $label_mac
+}
+
+board_config_update
+board=$(board_name)
+ipq40xx_setup_interfaces $board
+ipq40xx_setup_macs $board
+board_config_flush
+
+exit 0

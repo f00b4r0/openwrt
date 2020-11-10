@@ -7,7 +7,7 @@
 #include <dt-bindings/soc/qcom,tcsr.h>
 
 / {
-	model = "Mikrotik hAP ac2";
+	model = "MikroTik hAP ac2";
 	compatible = "mikrotik,hap-ac2";
 
 	memory {
@@ -176,11 +176,17 @@
 			#size-cells = <1>;
 
 			partition@0 {
+				label = "Qualcomm";
+				reg = <0x0 0x80000>;
+				read-only;
+			};
+
+			partition@80000 {
 				compatible = "mikrotik,routerboot-partitions";
 				#address-cells = <1>;
 				#size-cells = <1>;
-				label = "RouterBoot-partitions";
-				reg = <0x0 0x100000>;
+				label = "RouterBoot";
+				reg = <0x80000 0x80000>;
 				read-only;
 
 				hard_config {
