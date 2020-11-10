@@ -261,12 +261,8 @@
 
 &wifi0 {
 	status = "okay";
-
-	qcom,ath10k-calibration-variant = "Mikrotik-hAP-ac2";
 };
 
 &wifi1 {
 	status = "okay";
-
-	qcom,ath10k-calibration-variant = "Mikrotik-hAP-ac2";
 };

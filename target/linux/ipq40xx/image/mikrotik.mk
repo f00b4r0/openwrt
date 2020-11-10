@@ -13,6 +13,6 @@ define Device/mikrotik_hap-ac2
 	$(call Device/MikrotikNOR)
 	DEVICE_MODEL := hAP ac2
 	SOC := qcom-ipq4018
-	DEVICE_PACKAGES := ipq-wifi-mikrotik_hap-ac2 -kmod-ath10k-ct kmod-ath10k-ct-smallbuffers
+	DEVICE_PACKAGES := -kmod-ath10k-ct kmod-ath10k-ct-smallbuffers
 endef
 TARGET_DEVICES += mikrotik_hap-ac2
