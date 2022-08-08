@@ -1,0 +1,107 @@
+From 8fbebef80107d779b8e356cf60323454a4099d76 Mon Sep 17 00:00:00 2001
+From: DENG Qingfang <dqfext@gmail.com>
+Date: Fri, 6 Aug 2021 11:47:11 +0800
+Subject: [PATCH] net: dsa: mt7530: drop untagged frames on VLAN-aware ports
+ without PVID
+
+The driver currently still accepts untagged frames on VLAN-aware ports
+without PVID. Use PVC.ACC_FRM to drop untagged frames in that case.
+
+Signed-off-by: DENG Qingfang <dqfext@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/dsa/mt7530.c | 32 ++++++++++++++++++++++++++++++--
+ drivers/net/dsa/mt7530.h |  7 +++++++
+ 2 files changed, 37 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/dsa/mt7530.c
++++ b/drivers/net/dsa/mt7530.c
+@@ -1212,9 +1212,11 @@ mt7530_port_set_vlan_unaware(struct dsa_
+ 		mt7530_rmw(priv, MT7530_PCR_P(port), PCR_PORT_VLAN_MASK,
+ 			   MT7530_PORT_FALLBACK_MODE);
+ 
+-	mt7530_rmw(priv, MT7530_PVC_P(port), VLAN_ATTR_MASK | PVC_EG_TAG_MASK,
++	mt7530_rmw(priv, MT7530_PVC_P(port),
++		   VLAN_ATTR_MASK | PVC_EG_TAG_MASK | ACC_FRM_MASK,
+ 		   VLAN_ATTR(MT7530_VLAN_TRANSPARENT) |
+-		   PVC_EG_TAG(MT7530_VLAN_EG_CONSISTENT));
++		   PVC_EG_TAG(MT7530_VLAN_EG_CONSISTENT) |
++		   MT7530_VLAN_ACC_ALL);
+ 
+ 	/* Set PVID to 0 */
+ 	mt7530_rmw(priv, MT7530_PPBV1_P(port), G0_PORT_VID_MASK,
+@@ -1252,6 +1254,11 @@ mt7530_port_set_vlan_aware(struct dsa_sw
+ 			   MT7530_PORT_SECURITY_MODE);
+ 		mt7530_rmw(priv, MT7530_PPBV1_P(port), G0_PORT_VID_MASK,
+ 			   G0_PORT_VID(priv->ports[port].pvid));
++
++		/* Only accept tagged frames if PVID is not set */
++		if (!priv->ports[port].pvid)
++			mt7530_rmw(priv, MT7530_PVC_P(port), ACC_FRM_MASK,
++				   MT7530_VLAN_ACC_TAGGED);
+ 	}
+ 
+ 	/* Set the port as a user port which is to be able to recognize VID
+@@ -1596,11 +1603,26 @@ mt7530_port_vlan_add(struct dsa_switch *
+ 	if (pvid) {
+ 		priv->ports[port].pvid = vlan->vid_end;
+ 
++		/* Accept all frames if PVID is set */
++		mt7530_rmw(priv, MT7530_PVC_P(port), ACC_FRM_MASK,
++			   MT7530_VLAN_ACC_ALL);
++
+ 		/* Only configure PVID if VLAN filtering is enabled */
+ 		if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port)))
+ 			mt7530_rmw(priv, MT7530_PPBV1_P(port),
+ 				   G0_PORT_VID_MASK,
+ 				   G0_PORT_VID(vlan->vid_end));
++	} else if (vlan->vid_end && priv->ports[port].pvid == vlan->vid_end) {
++		/* This VLAN is overwritten without PVID, so unset it */
++		priv->ports[port].pvid = G0_PORT_VID_DEF;
++
++		/* Only accept tagged frames if the port is VLAN-aware */
++		if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port)))
++			mt7530_rmw(priv, MT7530_PVC_P(port), ACC_FRM_MASK,
++				   MT7530_VLAN_ACC_TAGGED);
++
++		mt7530_rmw(priv, MT7530_PPBV1_P(port), G0_PORT_VID_MASK,
++			   G0_PORT_VID_DEF);
+ 	}
+ 
+ 	mutex_unlock(&priv->reg_mutex);
+@@ -1626,6 +1648,12 @@ mt7530_port_vlan_del(struct dsa_switch *
+ 		 */
+ 		if (priv->ports[port].pvid == vlan->vid_end) {
+ 			priv->ports[port].pvid = G0_PORT_VID_DEF;
++
++			/* Only accept tagged frames if the port is VLAN-aware */
++			if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port)))
++				mt7530_rmw(priv, MT7530_PVC_P(port), ACC_FRM_MASK,
++					   MT7530_VLAN_ACC_TAGGED);
++
+ 			mt7530_rmw(priv, MT7530_PPBV1_P(port), G0_PORT_VID_MASK,
+ 				   G0_PORT_VID_DEF);
+ 		}
+--- a/drivers/net/dsa/mt7530.h
++++ b/drivers/net/dsa/mt7530.h
+@@ -237,6 +237,7 @@ enum mt7530_port_mode {
+ #define  PVC_EG_TAG_MASK		PVC_EG_TAG(7)
+ #define  VLAN_ATTR(x)			(((x) & 0x3) << 6)
+ #define  VLAN_ATTR_MASK			VLAN_ATTR(3)
++#define  ACC_FRM_MASK			GENMASK(1, 0)
+ 
+ enum mt7530_vlan_port_eg_tag {
+ 	MT7530_VLAN_EG_DISABLED = 0,
+@@ -248,6 +249,12 @@ enum mt7530_vlan_port_attr {
+ 	MT7530_VLAN_TRANSPARENT = 3,
+ };
+ 
++enum mt7530_vlan_port_acc_frm {
++	MT7530_VLAN_ACC_ALL = 0,
++	MT7530_VLAN_ACC_TAGGED = 1,
++	MT7530_VLAN_ACC_UNTAGGED = 2,
++};
++
+ #define  STAG_VPID			(((x) & 0xffff) << 16)
+ 
+ /* Register for port port-and-protocol based vlan 1 control */

@@ -1,0 +1,80 @@
+From 1ca8a193cade7f49801cc79e20d5f2a123991cdf Mon Sep 17 00:00:00 2001
+From: DENG Qingfang <dqfext@gmail.com>
+Date: Wed, 25 Aug 2021 00:52:52 +0800
+Subject: [PATCH] net: dsa: mt7530: manually set up VLAN ID 0
+
+The driver was relying on dsa_slave_vlan_rx_add_vid to add VLAN ID 0. After
+the blamed commit, VLAN ID 0 won't be set up anymore, breaking software
+bridging fallback on VLAN-unaware bridges.
+
+Manually set up VLAN ID 0 to fix this.
+
+Fixes: 06cfb2df7eb0 ("net: dsa: don't advertise 'rx-vlan-filter' when not needed")
+Signed-off-by: DENG Qingfang <dqfext@gmail.com>
+Reviewed-by: Vladimir Oltean <olteanv@gmail.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/dsa/mt7530.c | 25 +++++++++++++++++++++++++
+ drivers/net/dsa/mt7530.h |  2 ++
+ 2 files changed, 27 insertions(+)
+
+--- a/drivers/net/dsa/mt7530.c
++++ b/drivers/net/dsa/mt7530.c
+@@ -1629,6 +1629,21 @@ mt7530_port_vlan_add(struct dsa_switch *
+ }
+ 
+ static int
++mt7530_setup_vlan0(struct mt7530_priv *priv)
++{
++	u32 val;
++
++	/* Validate the entry with independent learning, keep the original
++	 * ingress tag attribute.
++	 */
++	val = IVL_MAC | EG_CON | PORT_MEM(MT7530_ALL_MEMBERS) | FID(FID_BRIDGED) |
++	      VLAN_VALID;
++	mt7530_write(priv, MT7530_VAWD1, val);
++
++	return mt7530_vlan_cmd(priv, MT7530_VTCR_WR_VID, 0);
++}
++
++static int
+ mt7530_port_vlan_del(struct dsa_switch *ds, int port,
+ 		     const struct switchdev_obj_port_vlan *vlan)
+ {
+@@ -2169,6 +2184,11 @@ mt7530_setup(struct dsa_switch *ds)
+ 			   PVC_EG_TAG(MT7530_VLAN_EG_CONSISTENT));
+ 	}
+ 
++	/* Setup VLAN ID 0 for VLAN-unaware bridges */
++	ret = mt7530_setup_vlan0(priv);
++	if (ret)
++		return ret;
++
+ 	/* Setup port 5 */
+ 	priv->p5_intf_sel = P5_DISABLED;
+ 	interface = PHY_INTERFACE_MODE_NA;
+@@ -2340,6 +2360,11 @@ mt7531_setup(struct dsa_switch *ds)
+ 			   PVC_EG_TAG(MT7530_VLAN_EG_CONSISTENT));
+ 	}
+ 
++	/* Setup VLAN ID 0 for VLAN-unaware bridges */
++	ret = mt7530_setup_vlan0(priv);
++	if (ret)
++		return ret;
++
+ 	ds->configure_vlan_while_not_filtering = true;
+ 	ds->assisted_learning_on_cpu_port = true;
+ 	ds->mtu_enforcement_ingress = true;
+--- a/drivers/net/dsa/mt7530.h
++++ b/drivers/net/dsa/mt7530.h
+@@ -144,6 +144,8 @@ enum mt7530_vlan_cmd {
+ #define  PORT_STAG			BIT(31)
+ /* Independent VLAN Learning */
+ #define  IVL_MAC			BIT(30)
++/* Egress Tag Consistent */
++#define  EG_CON				BIT(29)
+ /* Per VLAN Egress Tag Control */
+ #define  VTAG_EN			BIT(28)
+ /* VLAN Member Control */
