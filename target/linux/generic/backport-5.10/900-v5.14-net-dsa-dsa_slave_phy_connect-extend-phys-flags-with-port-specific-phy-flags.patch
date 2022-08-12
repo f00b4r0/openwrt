@@ -1,0 +1,49 @@
+From c916e8e1ea724db0f7bae36c11aaadc631226321 Mon Sep 17 00:00:00 2001
+From: Oleksij Rempel <o.rempel@pengutronix.de>
+Date: Mon, 14 Jun 2021 06:31:24 +0200
+Subject: [PATCH] net: dsa: dsa_slave_phy_connect(): extend phy's flags with
+ port specific phy flags
+
+The current get_phy_flags() is only processed when we connect to a PHY
+via a designed phy-handle property via phylink_of_phy_connect(), but if
+we fallback on the internal MDIO bus created by a switch and take the
+dsa_slave_phy_connect() path then we would not be processing that flag
+and using it at PHY connection time.
+
+Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Oleksij Rempel <o.rempel@pengutronix.de>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/dsa/slave.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1709,7 +1709,8 @@ static void dsa_slave_phylink_fixed_stat
+ }
+ 
+ /* slave device setup *******************************************************/
+-static int dsa_slave_phy_connect(struct net_device *slave_dev, int addr)
++static int dsa_slave_phy_connect(struct net_device *slave_dev, int addr,
++				 u32 flags)
+ {
+ 	struct dsa_port *dp = dsa_slave_to_port(slave_dev);
+ 	struct dsa_switch *ds = dp->ds;
+@@ -1720,6 +1721,8 @@ static int dsa_slave_phy_connect(struct
+ 		return -ENODEV;
+ 	}
+ 
++	slave_dev->phydev->dev_flags |= flags;
++
+ 	return phylink_connect_phy(dp->pl, slave_dev->phydev);
+ }
+ 
+@@ -1764,7 +1767,7 @@ static int dsa_slave_phy_setup(struct ne
+ 		/* We could not connect to a designated PHY or SFP, so try to
+ 		 * use the switch internal MDIO bus instead
+ 		 */
+-		ret = dsa_slave_phy_connect(slave_dev, dp->index);
++		ret = dsa_slave_phy_connect(slave_dev, dp->index, phy_flags);
+ 	}
+ 	if (ret) {
+ 		netdev_err(slave_dev, "failed to connect to PHY: %pe\n",
